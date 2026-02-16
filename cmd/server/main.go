@@ -39,6 +39,16 @@ func main() {
 	app.Post("/admin/register", adminHandler.Register)
 	app.Post("/admin/login", adminHandler.Login)
 
+	// Subcity
+	subcityRepo := persistence.NewSubcityRepository(db)
+	subcityUsecase := usecase.NewSubcityUsecase(subcityRepo)
+	subcityHandler := http.NewSubcityHandler(subcityUsecase)
+
+	app.Post("/subcities", subcityHandler.Create)
+	app.Get("/subcities", subcityHandler.List)
+	app.Put("/subcities/:id", subcityHandler.Update)
+	app.Delete("/subcities/:id", subcityHandler.Delete)
+
 
 	log.Println("Server running on :8080")
 	app.Listen(":8080")
