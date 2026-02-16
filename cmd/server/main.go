@@ -11,6 +11,8 @@ import (
 	"github.com/FANIMAN/housing-lottery/internal/delivery/http"
 	"github.com/FANIMAN/housing-lottery/internal/infrastructure/persistence"
 	"github.com/FANIMAN/housing-lottery/internal/usecase"
+	"github.com/FANIMAN/housing-lottery/internal/delivery/middleware"
+
 )
 
 func main() {
@@ -39,15 +41,18 @@ func main() {
 	app.Post("/admin/register", adminHandler.Register)
 	app.Post("/admin/login", adminHandler.Login)
 
+	// Protected routes group
+	api := app.Group("/api", middleware.JWTMiddleware())
+	
 	// Subcity
 	subcityRepo := persistence.NewSubcityRepository(db)
 	subcityUsecase := usecase.NewSubcityUsecase(subcityRepo)
 	subcityHandler := http.NewSubcityHandler(subcityUsecase)
 
-	app.Post("/subcities", subcityHandler.Create)
-	app.Get("/subcities", subcityHandler.List)
-	app.Put("/subcities/:id", subcityHandler.Update)
-	app.Delete("/subcities/:id", subcityHandler.Delete)
+	api.Post("/subcities", subcityHandler.Create)
+	api.Get("/subcities", subcityHandler.List)
+	api.Put("/subcities/:id", subcityHandler.Update)
+	api.Delete("/subcities/:id", subcityHandler.Delete)
 
 
 	log.Println("Server running on :8080")
