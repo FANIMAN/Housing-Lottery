@@ -1,0 +1,66 @@
+# =========================
+# Environment Variables
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Build Outputs
+# =========================
+bin/
+build/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# =========================
+# Go Specific
+# =========================
+vendor/
+*.coverprofile
+coverage.out
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
+tmp/
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# IDE / Editor
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# Node (if you add Vue frontend later)
+# =========================
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# =========================
+# Docker (optional future)
+# =========================
+docker-compose.override.yml
+
+# =========================
+# Database files (if ever used locally)
+# =========================
+*.sqlite
+*.db
