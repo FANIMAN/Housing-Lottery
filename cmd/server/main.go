@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
@@ -27,7 +28,7 @@ func main() {
 	adminRepo := persistence.NewAdminRepository(db)
 
 	// Usecase
-	adminUsecase := usecase.NewAdminUsecase(adminRepo)
+	adminUsecase := usecase.NewAdminUsecase(adminRepo, os.Getenv("JWT_SECRET"))
 
 	// Handler
 	adminHandler := http.NewAdminHandler(adminUsecase)
@@ -36,6 +37,8 @@ func main() {
 
 	// Routes
 	app.Post("/admin/register", adminHandler.Register)
+	app.Post("/admin/login", adminHandler.Login)
+
 
 	log.Println("Server running on :8080")
 	app.Listen(":8080")
