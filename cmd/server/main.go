@@ -5,67 +5,70 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
 
 	"github.com/FANIMAN/housing-lottery/internal/config"
 	"github.com/FANIMAN/housing-lottery/internal/delivery/http"
+	"github.com/FANIMAN/housing-lottery/internal/delivery/middleware"
 	"github.com/FANIMAN/housing-lottery/internal/infrastructure/persistence"
 	"github.com/FANIMAN/housing-lottery/internal/usecase"
-	"github.com/FANIMAN/housing-lottery/internal/delivery/middleware"
-
 )
 
 func main() {
-
-	// Load .env
-	err := godotenv.Load()
-	if err != nil {
+	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")
 	}
 
-	// Connect DB
 	db := config.NewDB()
 
-	// Repository
+	// Repositories
 	adminRepo := persistence.NewAdminRepository(db)
+	auditRepo := persistence.NewAuditRepository(db)
+	subcityRepo := persistence.NewSubcityRepository(db)
+	applicantRepo := persistence.NewApplicantRepository(db)
+	uploadBatchRepo := persistence.NewUploadBatchRepository(db)
+	lotteryRepo := persistence.NewLotteryRepository(db)
+	lotteryWinnerRepo := persistence.NewLotteryWinnerRepository(db)
 
-	// Usecase
-	adminUsecase := usecase.NewAdminUsecase(adminRepo, os.Getenv("JWT_SECRET"))
+	// Usecases
+	adminUsecase := usecase.NewAdminUsecase(adminRepo, auditRepo, os.Getenv("JWT_SECRET"))
+	subcityUsecase := usecase.NewSubcityUsecase(subcityRepo, auditRepo)
+	uploadService := usecase.NewUploadService(applicantRepo, uploadBatchRepo, auditRepo)
+	lotteryService := usecase.NewLotteryService(lotteryRepo, applicantRepo, lotteryWinnerRepo, auditRepo)
 
-	// Handler
+	// Handlers
 	adminHandler := http.NewAdminHandler(adminUsecase)
+	subcityHandler := http.NewSubcityHandler(subcityUsecase)
+	uploadHandler := http.NewUploadHandler(uploadService)
+	lotteryHandler := http.NewLotteryHandler(lotteryService)
 
 	app := fiber.New()
 
-	// Routes
+	app.Use(logger.New())
+	app.Use(middleware.AuditMiddleware(auditRepo)) 
+
+	// Public routes
 	app.Post("/admin/register", adminHandler.Register)
 	app.Post("/admin/login", adminHandler.Login)
 
-	// Protected routes group
+	// Protected routes
 	api := app.Group("/api", middleware.JWTMiddleware())
-	
-	// Subcity
-	subcityRepo := persistence.NewSubcityRepository(db)
-	subcityUsecase := usecase.NewSubcityUsecase(subcityRepo)
-	subcityHandler := http.NewSubcityHandler(subcityUsecase)
 
+	// Subcity
 	api.Post("/subcities", subcityHandler.Create)
 	api.Get("/subcities", subcityHandler.List)
 	api.Put("/subcities/:id", subcityHandler.Update)
 	api.Delete("/subcities/:id", subcityHandler.Delete)
 
-
-
-	uploadBatchRepo := persistence.NewUploadBatchRepository(db)
-	uploadService := usecase.NewUploadService(
-		persistence.NewApplicantRepository(db),
-		uploadBatchRepo,
-	)
-	uploadHandler := http.NewUploadHandler(uploadService)
-
+	// Upload
 	api.Post("/subcities/:id/upload", uploadHandler.UploadApplicants)
 
+	// Lottery
+	api.Post("/subcities/:id/lottery/start", lotteryHandler.Start)
+	api.Post("/lotteries/:id/spin", lotteryHandler.Spin)
+	api.Post("/lotteries/:id/close", lotteryHandler.Close)
 
 	log.Println("Server running on :8080")
-	app.Listen(":8080")
+	log.Fatal(app.Listen(":8080"))
 }

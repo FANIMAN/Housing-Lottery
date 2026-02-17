@@ -10,4 +10,6 @@ import (
 type ApplicantRepository interface {
 	CreateBulk(ctx context.Context, applicants []*domain.Applicant) error
 	GetBySubcityRegistrationIDs(ctx context.Context, subcityID uuid.UUID, registrationIDs []string) (map[string]bool, error)
+    GetAllBySubcityID(ctx context.Context, subcityID uuid.UUID) ([]*domain.Applicant, error)
+
 }
