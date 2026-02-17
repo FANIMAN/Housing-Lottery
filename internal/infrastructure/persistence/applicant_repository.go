@@ -75,3 +75,27 @@ func (r *applicantRepository) GetBySubcityRegistrationIDs(ctx context.Context, s
 
 	return existing, nil
 }
+
+// Fetch all applicant registration IDs for a given subcity
+func (r *applicantRepository) GetAllBySubcityID(ctx context.Context, subcityID uuid.UUID) ([]*domain.Applicant, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT id, full_name, condominium_registration_id, subcity_id, upload_batch_id, created_at
+		FROM applicants
+		WHERE subcity_id=$1
+	`, subcityID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var applicants []*domain.Applicant
+	for rows.Next() {
+		var a domain.Applicant
+		if err := rows.Scan(&a.ID, &a.FullName, &a.CondominiumRegistrationID, &a.SubcityID, &a.UploadBatchID, &a.CreatedAt); err != nil {
+			return nil, err
+		}
+		applicants = append(applicants, &a)
+	}
+	return applicants, nil
+}
+

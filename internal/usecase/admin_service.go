@@ -13,17 +13,28 @@ import (
 )
 
 type AdminUsecase struct {
-	repo       interfaces.AdminRepository
-	jwtSecret  string
+	repo      interfaces.AdminRepository
+	auditRepo interfaces.AuditRepository
+	jwtSecret string
 }
 
-func NewAdminUsecase(r interfaces.AdminRepository, jwtSecret string) *AdminUsecase {
-	return &AdminUsecase{repo: r, jwtSecret: jwtSecret}
+func NewAdminUsecase(
+	repo interfaces.AdminRepository,
+	auditRepo interfaces.AuditRepository,
+	jwtSecret string,
+) *AdminUsecase {
+	return &AdminUsecase{
+		repo:      repo,
+		auditRepo: auditRepo,
+		jwtSecret: jwtSecret,
+	}
 }
+
 
 func (u *AdminUsecase) Register(ctx context.Context, email, password string) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
+		_ = u.auditRepo.Log(ctx, "", "admin_register_failed", "admin", "", 0, "", "", err.Error())
 		return err
 	}
 
@@ -34,7 +45,13 @@ func (u *AdminUsecase) Register(ctx context.Context, email, password string) err
 		CreatedAt:    time.Now(),
 	}
 
-	return u.repo.Create(ctx, admin)
+	if err := u.repo.Create(ctx, admin); err != nil {
+		_ = u.auditRepo.Log(ctx, "", "admin_register_failed", "admin", admin.ID, 0, "", "", err.Error())
+		return err
+	}
+
+	_ = u.auditRepo.Log(ctx, admin.ID, "admin_register", "admin", admin.ID, 0, "", "", "")
+	return nil
 }
 
 // Login authenticates an admin and returns a JWT token
@@ -58,8 +75,9 @@ func (u *AdminUsecase) Login(ctx context.Context, email, password string) (strin
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signedToken, err := token.SignedString([]byte(u.jwtSecret))
 	if err != nil {
+		_ = u.auditRepo.Log(ctx, "", "admin_login_failed", "admin", admin.ID, 0, "", "", err.Error())
 		return "", err
 	}
-
+	_ = u.auditRepo.Log(ctx, admin.ID, "admin_login", "admin", admin.ID, 0, "", "", "")
 	return signedToken, nil
 }

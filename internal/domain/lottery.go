@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type LotteryStatus string
 
@@ -12,7 +16,7 @@ const (
 
 type Lottery struct {
 	ID              string
-	SubcityID       string
+	SubcityID       uuid.UUID
 	TotalApplicants int
 	WinnersCount    int
 	SeedValue       int64

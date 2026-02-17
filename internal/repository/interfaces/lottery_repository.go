@@ -2,6 +2,7 @@ package interfaces
 
 import (
 	"context"
+
 	"github.com/FANIMAN/housing-lottery/internal/domain"
 )
 
