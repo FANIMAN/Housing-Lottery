@@ -4,7 +4,9 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/FANIMAN/housing-lottery/internal/repository/interfaces"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -59,5 +61,59 @@ func JWTMiddleware() fiber.Handler {
 		c.Locals("admin_id", claims["admin_id"])
 
 		return c.Next()
+	}
+}
+
+
+
+func AuditMiddleware(auditRepo interfaces.AuditRepository) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		start := time.Now()
+
+		// Run the next handler
+		err := c.Next()
+
+		// Capture response details
+		status := c.Response().StatusCode()
+		ip := c.IP()
+		userAgent := c.Get("User-Agent")
+		duration := time.Since(start)
+
+		var errorMessage string
+		if err != nil {
+			errorMessage = err.Error()
+		}
+
+		// Get admin_id if exists (public routes may not have it)
+		adminID := ""
+		if id, ok := c.Locals("admin_id").(string); ok {
+			adminID = id
+		}
+
+		// Action = HTTP method + path
+		action := c.Method() + " " + c.Path()
+
+		// Include duration in error_message if needed
+		if duration > 0 {
+			if errorMessage != "" {
+				errorMessage += " | "
+			}
+			errorMessage += "duration=" + duration.String()
+		}
+
+		// Log the HTTP request in audit_logs
+		_ = auditRepo.Log(
+			c.Context(),
+			adminID,
+			action,
+			"http_request",
+			"",       // entity_id empty for generic requests
+			status,
+			ip,
+			userAgent,
+			errorMessage,
+		)
+
+		return err
 	}
 }
