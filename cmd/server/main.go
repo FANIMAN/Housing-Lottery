@@ -55,6 +55,17 @@ func main() {
 	api.Delete("/subcities/:id", subcityHandler.Delete)
 
 
+
+	uploadBatchRepo := persistence.NewUploadBatchRepository(db)
+	uploadService := usecase.NewUploadService(
+		persistence.NewApplicantRepository(db),
+		uploadBatchRepo,
+	)
+	uploadHandler := http.NewUploadHandler(uploadService)
+
+	api.Post("/subcities/:id/upload", uploadHandler.UploadApplicants)
+
+
 	log.Println("Server running on :8080")
 	app.Listen(":8080")
 }

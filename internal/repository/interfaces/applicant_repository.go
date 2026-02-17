@@ -2,10 +2,12 @@ package interfaces
 
 import (
 	"context"
+
 	"github.com/FANIMAN/housing-lottery/internal/domain"
+	"github.com/google/uuid"
 )
 
 type ApplicantRepository interface {
-	BulkInsert(ctx context.Context, applicants []domain.Applicant) error
-	GetBySubcity(ctx context.Context, subcityID string) ([]domain.Applicant, error)
+	CreateBulk(ctx context.Context, applicants []*domain.Applicant) error
+	GetBySubcityRegistrationIDs(ctx context.Context, subcityID uuid.UUID, registrationIDs []string) (map[string]bool, error)
 }
