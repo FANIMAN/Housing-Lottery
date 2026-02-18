@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 
 	"github.com/FANIMAN/housing-lottery/internal/config"
 	"github.com/FANIMAN/housing-lottery/internal/delivery/http"
@@ -16,6 +17,7 @@ import (
 )
 
 func main() {
+	// Load environment variables
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")
 	}
@@ -25,7 +27,7 @@ func main() {
 	// Repositories
 	adminRepo := persistence.NewAdminRepository(db)
 	auditRepo := persistence.NewAuditRepository(db)
-	subcityRepo := persistence.NewSubcityRepository(db)
+	subcityRepo := persistence.NewSubcityRepository(db) // exported type SubcityRepo
 	applicantRepo := persistence.NewApplicantRepository(db)
 	uploadBatchRepo := persistence.NewUploadBatchRepository(db)
 	lotteryRepo := persistence.NewLotteryRepository(db)
@@ -43,21 +45,37 @@ func main() {
 	uploadHandler := http.NewUploadHandler(uploadService)
 	lotteryHandler := http.NewLotteryHandler(lotteryService)
 
-	app := fiber.New()
+	// Dashboard
+	dashboardRepo := persistence.NewDashboardRepository(db)
+	dashboardUsecase := usecase.NewDashboardUsecase(dashboardRepo, subcityRepo, lotteryRepo)
+	dashboardHandler := http.NewDashboardHandler(dashboardUsecase)
 
+	app := fiber.New()
 	app.Use(logger.New())
-	app.Use(middleware.AuditMiddleware(auditRepo)) 
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "http://localhost:5173",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
+	}))
+	app.Use(middleware.AuditMiddleware(auditRepo))
 
 	// Public routes
-	app.Post("/admin/register", adminHandler.Register)
 	app.Post("/admin/login", adminHandler.Login)
 
 	// Protected routes
 	api := app.Group("/api", middleware.JWTMiddleware())
 
-	// Subcity
+	// Admin
+	api.Post("/admin/register", adminHandler.Register)
+
+	// Dashboard endpoints
+	api.Get("/dashboard/summary", dashboardHandler.GetSummary)
+	api.Get("/subcities", dashboardHandler.ListSubcities)
+	api.Get("/lotteries", dashboardHandler.ListLotteries)
+
+	// Subcity CRUD
 	api.Post("/subcities", subcityHandler.Create)
-	api.Get("/subcities", subcityHandler.List)
+	api.Get("/subcities/list", subcityHandler.List) // keep previous endpoint
 	api.Put("/subcities/:id", subcityHandler.Update)
 	api.Delete("/subcities/:id", subcityHandler.Delete)
 
