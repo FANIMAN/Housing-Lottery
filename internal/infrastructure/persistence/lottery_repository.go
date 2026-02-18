@@ -81,3 +81,22 @@ func (r *LotteryRepo) InsertWinners(ctx context.Context, winners []domain.Lotter
 	}
 	return nil
 }
+
+// ListAll returns all lotteries
+func (r *LotteryRepo) ListAll(ctx context.Context) ([]*domain.Lottery, error) {
+	rows, err := r.db.Query(ctx, "SELECT id, subcity_id, total_applicants, winners_count, seed_value, status, created_at FROM lotteries")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var lotteries []*domain.Lottery
+	for rows.Next() {
+		var l domain.Lottery
+		if err := rows.Scan(&l.ID, &l.SubcityID, &l.TotalApplicants, &l.WinnersCount, &l.SeedValue, &l.Status, &l.CreatedAt); err != nil {
+			return nil, err
+		}
+		lotteries = append(lotteries, &l)
+	}
+	return lotteries, nil
+}

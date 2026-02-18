@@ -12,4 +12,6 @@ type SubcityRepository interface {
 	GetAll(ctx context.Context) ([]*domain.Subcity, error)
 	Update(ctx context.Context, subcity *domain.Subcity) error
 	Delete(ctx context.Context, id string) error
+	ListAll(ctx context.Context) ([]*domain.Subcity, error)
+
 }
