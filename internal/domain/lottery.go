@@ -16,6 +16,7 @@ const (
 
 type Lottery struct {
 	ID              string
+	Name 		    string
 	SubcityID       uuid.UUID
 	TotalApplicants int
 	WinnersCount    int

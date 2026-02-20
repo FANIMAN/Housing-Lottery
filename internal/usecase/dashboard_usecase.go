@@ -28,8 +28,18 @@ func NewDashboardUsecase(
 }
 
 // Get summary with optional filters
-func (u *DashboardUsecase) GetSummary(subcityId, status, startDate, endDate string) (*interfaces.DashboardSummary, error) {
-	return u.repo.GetSummary(context.Background(), subcityId, status, startDate, endDate)
+func (u *DashboardUsecase) GetSummary(
+	subcityId, lotteryId, status, startDate, endDate string,
+) (*interfaces.DashboardSummary, error) {
+
+	return u.repo.GetSummary(
+		context.Background(),
+		subcityId,
+		lotteryId,
+		status,
+		startDate,
+		endDate,
+	)
 }
 
 // ListSubcities returns all subcities
@@ -40,4 +50,8 @@ func (u *DashboardUsecase) ListSubcities() ([]*domain.Subcity, error) {
 // ListLotteries returns all lotteries
 func (u *DashboardUsecase) ListLotteries() ([]*domain.Lottery, error) {
 	return u.lotteryRepo.ListAll(context.Background())
+}
+
+func (u *DashboardUsecase) ListLotteriesBySubcity(subcityId string) ([]*domain.Lottery, error) {
+	return u.lotteryRepo.ListBySubcity(context.Background(), subcityId)
 }
