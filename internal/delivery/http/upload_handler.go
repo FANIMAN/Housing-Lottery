@@ -1,6 +1,9 @@
 package http
 
 import (
+	"strconv"
+
+	"github.com/FANIMAN/housing-lottery/internal/domain"
 	"github.com/FANIMAN/housing-lottery/internal/usecase"
 	"github.com/gofiber/fiber/v2"
 )
@@ -46,5 +49,79 @@ func (h *UploadHandler) UploadApplicants(c *fiber.Ctx) error {
 		"message":            "Upload completed",
 		"inserted":           inserted,
 		"skipped_duplicates": skipped,
+	})
+}
+
+// func (h *UploadHandler) ListApplicants(c *fiber.Ctx) error {
+// 	adminID := c.Locals("admin_id")
+// 	if adminID == nil {
+// 		return fiber.ErrUnauthorized
+// 	}
+
+// 	subcityIDStr := c.Query("subcityId")
+// 	search := c.Query("search")
+
+// 	page, _ := strconv.Atoi(c.Query("page", "1"))
+// 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+
+// 	applicants, err := h.usecase.GetApplicants(
+// 		c.Context(),
+// 		subcityIDStr,
+// 		search,
+// 		page,
+// 		limit,
+// 	)
+
+// 	if err != nil {
+// 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch applicants")
+// 	}
+
+// 	return c.JSON(fiber.Map{
+// 		"data": applicants,
+// 	})
+// }
+
+
+func (h *UploadHandler) ListApplicants(c *fiber.Ctx) error {
+	adminID := c.Locals("admin_id")
+	if adminID == nil {
+		return fiber.ErrUnauthorized
+	}
+
+	subcityIDStr := c.Query("subcityId")
+	search := c.Query("search")
+
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
+	applicants, total, err := h.usecase.GetApplicants(
+		c.Context(),
+		subcityIDStr,
+		search,
+		page,
+		limit,
+	)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch applicants")
+	}
+
+	// IMPORTANT: never return null
+	if applicants == nil {
+		applicants = []*domain.Applicant{}
+	}
+
+	return c.JSON(fiber.Map{
+		"data":  applicants,
+		"total": total,
+		"page":  page,
+		"limit": limit,
 	})
 }

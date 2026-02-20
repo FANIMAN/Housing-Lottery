@@ -5,9 +5,9 @@ import (
 	"os"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
-	"github.com/gofiber/fiber/v2/middleware/cors"
 
 	"github.com/FANIMAN/housing-lottery/internal/config"
 	"github.com/FANIMAN/housing-lottery/internal/delivery/http"
@@ -81,6 +81,7 @@ func main() {
 
 	// Upload
 	api.Post("/subcities/:id/upload", uploadHandler.UploadApplicants)
+	api.Get("/applicants", uploadHandler.ListApplicants)
 
 	// Lottery
 	api.Post("/subcities/:id/lottery/start", lotteryHandler.Start)

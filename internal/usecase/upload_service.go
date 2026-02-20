@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/FANIMAN/housing-lottery/internal/domain"
@@ -81,4 +82,62 @@ func (s *UploadService) ProcessExcel(ctx context.Context, subcityIDStr, adminIDS
 
 	_ = s.auditRepo.Log(ctx, adminIDStr, "upload_success", "upload_batch", batch.ID.String(), 0, "", "", "")
 	return len(applicants), skipped, nil
+}
+
+
+func (s *UploadService) GetApplicantsBySubcity(ctx context.Context, subcityIDStr string, search string) ([]*domain.Applicant, error) {
+    subcityID, err := uuid.Parse(subcityIDStr)
+    if err != nil {
+        return nil, err
+    }
+    applicants, err := s.applicantRepo.GetAllBySubcityID(ctx, subcityID)
+    if err != nil {
+        return nil, err
+    }
+    if search != "" {
+        filtered := []*domain.Applicant{}
+        for _, a := range applicants {
+            if strings.Contains(strings.ToLower(a.FullName), strings.ToLower(search)) ||
+               strings.Contains(strings.ToLower(a.CondominiumRegistrationID), strings.ToLower(search)) {
+                filtered = append(filtered, a)
+            }
+        }
+        return filtered, nil
+    }
+    return applicants, nil
+}
+
+// func (s *UploadService) GetAllApplicants(ctx context.Context, search string) ([]*domain.Applicant, error) {
+//     // This could list all applicants across subcities
+//     // You can implement later if needed
+//     return []*domain.Applicant{}, nil
+// }
+
+func (s *UploadService) GetApplicants(
+	ctx context.Context,
+	subcityIDStr string,
+	search string,
+	page int,
+	limit int,
+) ([]*domain.Applicant, int, error) {
+
+	var subcityID *uuid.UUID
+	if subcityIDStr != "" {
+		parsed, err := uuid.Parse(subcityIDStr)
+		if err != nil {
+			return nil, 0, err
+		}
+		subcityID = &parsed
+	}
+
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+
+	offset := (page - 1) * limit
+
+	return s.applicantRepo.GetFiltered(ctx, subcityID, search, limit, offset)
 }
