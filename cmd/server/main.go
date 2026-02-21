@@ -37,7 +37,7 @@ func main() {
 	adminUsecase := usecase.NewAdminUsecase(adminRepo, auditRepo, os.Getenv("JWT_SECRET"))
 	subcityUsecase := usecase.NewSubcityUsecase(subcityRepo, auditRepo)
 	uploadService := usecase.NewUploadService(applicantRepo, uploadBatchRepo, auditRepo)
-	lotteryService := usecase.NewLotteryService(lotteryRepo, applicantRepo, lotteryWinnerRepo, auditRepo)
+	lotteryService := usecase.NewLotteryService(db, lotteryRepo, applicantRepo, lotteryWinnerRepo, auditRepo)
 
 	// Handlers
 	adminHandler := http.NewAdminHandler(adminUsecase)
@@ -75,7 +75,7 @@ func main() {
 
 	// Subcity CRUD
 	api.Post("/subcities", subcityHandler.Create)
-	api.Get("/subcities/list", subcityHandler.List) // keep previous endpoint
+	api.Get("/subcities/list", subcityHandler.List) 
 	api.Put("/subcities/:id", subcityHandler.Update)
 	api.Delete("/subcities/:id", subcityHandler.Delete)
 

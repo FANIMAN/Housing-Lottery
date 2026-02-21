@@ -10,9 +10,15 @@ type LotteryHandler struct {
 	service *usecase.LotteryService
 }
 
+type StartLotteryRequest struct {
+    Name string `json:"name"`
+}
+
+
 func NewLotteryHandler(service *usecase.LotteryService) *LotteryHandler {
 	return &LotteryHandler{service: service}
 }
+
 
 // Spin a lottery winner
 func (h *LotteryHandler) Spin(c *fiber.Ctx) error {
@@ -33,21 +39,47 @@ func (h *LotteryHandler) Spin(c *fiber.Ctx) error {
 }
 
 // Start lottery for subcity
+// func (h *LotteryHandler) Start(c *fiber.Ctx) error {
+// 	subcityIDStr := c.Params("id")
+// 	subcityID, err := uuid.Parse(subcityIDStr)
+// 	if err != nil {
+// 		return c.Status(400).JSON(fiber.Map{"error": "invalid subcity ID"})
+// 	}
+
+// 	adminID := c.Locals("admin_id").(string)
+
+// 	lottery, err := h.service.StartLottery(c.Context(), subcityID, adminID)
+// 	if err != nil {
+// 		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+// 	}
+
+// 	return c.JSON(lottery)
+// }
+
 func (h *LotteryHandler) Start(c *fiber.Ctx) error {
-	subcityIDStr := c.Params("id")
-	subcityID, err := uuid.Parse(subcityIDStr)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "invalid subcity ID"})
-	}
+    subcityIDStr := c.Params("id")
+    subcityID, err := uuid.Parse(subcityIDStr)
+    if err != nil {
+        return c.Status(400).JSON(fiber.Map{"error": "invalid subcity ID"})
+    }
 
-	adminID := c.Locals("admin_id").(string)
+    var req StartLotteryRequest
+    if err := c.BodyParser(&req); err != nil {
+        return c.Status(400).JSON(fiber.Map{"error": "invalid request body"})
+    }
 
-	lottery, err := h.service.StartLottery(c.Context(), subcityID, adminID)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
-	}
+    if req.Name == "" {
+        return c.Status(400).JSON(fiber.Map{"error": "lottery name is required"})
+    }
 
-	return c.JSON(lottery)
+    adminID := c.Locals("admin_id").(string)
+
+    lottery, err := h.service.StartLottery(c.Context(), subcityID, req.Name, adminID)
+    if err != nil {
+        return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+    }
+
+    return c.JSON(lottery)
 }
 
 // Close lottery

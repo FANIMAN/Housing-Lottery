@@ -9,9 +9,11 @@ import (
 	"github.com/FANIMAN/housing-lottery/internal/domain"
 	"github.com/FANIMAN/housing-lottery/internal/repository/interfaces"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type LotteryService struct {
+	db                *pgxpool.Pool
 	lotteryRepo       interfaces.LotteryRepository
 	applicantRepo     interfaces.ApplicantRepository
 	lotteryWinnerRepo interfaces.LotteryWinnerRepository
@@ -19,12 +21,14 @@ type LotteryService struct {
 }
 
 func NewLotteryService(
+	db *pgxpool.Pool,
 	lotteryRepo interfaces.LotteryRepository,
 	applicantRepo interfaces.ApplicantRepository,
 	lotteryWinnerRepo interfaces.LotteryWinnerRepository,
 	auditRepo interfaces.AuditRepository,
 ) *LotteryService {
 	return &LotteryService{
+		db:                db,
 		lotteryRepo:       lotteryRepo,
 		applicantRepo:     applicantRepo,
 		lotteryWinnerRepo: lotteryWinnerRepo,
@@ -32,7 +36,14 @@ func NewLotteryService(
 	}
 }
 
-func (s *LotteryService) StartLottery(ctx context.Context, subcityID uuid.UUID, adminID string) (*domain.Lottery, error) {
+func (s *LotteryService) StartLottery(
+	ctx context.Context,
+	subcityID uuid.UUID,
+	name string,
+	adminID string,
+) (*domain.Lottery, error) {
+
+	// func (s *LotteryService) StartLottery(ctx context.Context, subcityID uuid.UUID, name string, adminID string) (*domain.Lottery, error) {
 	applicants, err := s.applicantRepo.GetAllBySubcityID(ctx, subcityID)
 	if err != nil {
 		_ = s.auditRepo.Log(ctx, adminID, "start_lottery_failed", "lottery", "", 0, "", "", err.Error())
@@ -41,6 +52,7 @@ func (s *LotteryService) StartLottery(ctx context.Context, subcityID uuid.UUID, 
 
 	lottery := &domain.Lottery{
 		ID:              uuid.NewString(),
+		Name:            name,
 		SubcityID:       subcityID,
 		Status:          domain.LotteryPending,
 		SeedValue:       time.Now().UnixNano(),
@@ -58,9 +70,15 @@ func (s *LotteryService) StartLottery(ctx context.Context, subcityID uuid.UUID, 
 }
 
 func (s *LotteryService) SpinLottery(ctx context.Context, lotteryID, adminID string) (*domain.LotteryWinner, error) {
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
 	lottery, err := s.lotteryRepo.GetByID(ctx, lotteryID)
 	if err != nil {
-		_ = s.auditRepo.Log(ctx, adminID, "lottery_spin_failed", "lottery", lotteryID, 0, "", "", err.Error())
 		return nil, err
 	}
 
@@ -92,9 +110,12 @@ func (s *LotteryService) SpinLottery(ctx context.Context, lotteryID, adminID str
 	}
 
 	if len(eligible) == 0 {
-		lottery.Status = domain.LotteryCompleted
-		_ = s.lotteryRepo.Create(ctx, lottery)
-		_ = s.auditRepo.Log(ctx, adminID, "lottery_no_eligible_applicants", "lottery", lotteryID, 0, "", "", "")
+		if err := s.lotteryRepo.UpdateStatus(ctx, tx, lotteryID, domain.LotteryCompleted); err != nil {
+			return nil, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return nil, err
+		}
 		return nil, errors.New("no eligible applicants remaining")
 	}
 
@@ -107,12 +128,18 @@ func (s *LotteryService) SpinLottery(ctx context.Context, lotteryID, adminID str
 		PositionOrder: len(winners) + 1,
 	}
 
-	if err := s.lotteryWinnerRepo.Create(ctx, winner); err != nil {
-		_ = s.auditRepo.Log(ctx, adminID, "lottery_spin_failed", "lottery_winner", winner.ID, 0, "", "", err.Error())
+	if err := s.lotteryWinnerRepo.CreateTx(ctx, tx, winner); err != nil {
 		return nil, err
 	}
 
-	_ = s.auditRepo.Log(ctx, adminID, "lottery_spin", "lottery_winner", winner.ID, 0, "", "", "")
+	if err := s.lotteryRepo.IncrementWinnersCount(ctx, tx, lotteryID); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
 	return winner, nil
 }
 

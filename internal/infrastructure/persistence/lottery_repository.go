@@ -18,7 +18,7 @@ func NewLotteryRepository(db *pgxpool.Pool) *LotteryRepo {
 	return &LotteryRepo{db: db}
 }
 
-// Create or update lottery
+
 func (r *LotteryRepo) Create(ctx context.Context, lottery *domain.Lottery) error {
 	if lottery.ID == "" {
 		lottery.ID = uuid.New().String()
@@ -28,31 +28,55 @@ func (r *LotteryRepo) Create(ctx context.Context, lottery *domain.Lottery) error
 	}
 
 	_, err := r.db.Exec(ctx, `
-		INSERT INTO lotteries (id, subcity_id, total_applicants, winners_count, seed_value, status, created_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7)
+		INSERT INTO lotteries 
+		(id, name, subcity_id, total_applicants, winners_count, seed_value, status, created_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 		ON CONFLICT (id) DO UPDATE
-		SET status = EXCLUDED.status,
+		SET 
+		    name = EXCLUDED.name,
+		    status = EXCLUDED.status,
 		    total_applicants = EXCLUDED.total_applicants,
 		    winners_count = EXCLUDED.winners_count
-	`, lottery.ID, lottery.SubcityID, lottery.TotalApplicants, lottery.WinnersCount, lottery.SeedValue, lottery.Status, lottery.CreatedAt)
+	`,
+		lottery.ID,
+		lottery.Name,           
+		lottery.SubcityID,
+		lottery.TotalApplicants,
+		lottery.WinnersCount,
+		lottery.SeedValue,
+		lottery.Status,
+		lottery.CreatedAt,
+	)
 
 	return err
 }
 
+
 // Get a lottery by ID
 func (r *LotteryRepo) GetByID(ctx context.Context, id string) (*domain.Lottery, error) {
 	row := r.db.QueryRow(ctx, `
-		SELECT id, subcity_id, total_applicants, winners_count, seed_value, status, created_at
+		SELECT id, name, subcity_id, total_applicants, winners_count, seed_value, status, created_at
 		FROM lotteries
 		WHERE id = $1
 	`, id)
 
 	var l domain.Lottery
-	if err := row.Scan(&l.ID, &l.SubcityID, &l.TotalApplicants, &l.WinnersCount, &l.SeedValue, &l.Status, &l.CreatedAt); err != nil {
+	if err := row.Scan(
+		&l.ID,
+		&l.Name,
+		&l.SubcityID,
+		&l.TotalApplicants,
+		&l.WinnersCount,
+		&l.SeedValue,
+		&l.Status,
+		&l.CreatedAt,
+	); err != nil {
 		return nil, err
 	}
-	return &l, nil
+
+	return &l, nil 
 }
+
 
 // Insert multiple winners for a lottery
 func (r *LotteryRepo) InsertWinners(ctx context.Context, winners []domain.LotteryWinner) error {
@@ -84,7 +108,10 @@ func (r *LotteryRepo) InsertWinners(ctx context.Context, winners []domain.Lotter
 
 // ListAll returns all lotteries
 func (r *LotteryRepo) ListAll(ctx context.Context) ([]*domain.Lottery, error) {
-	rows, err := r.db.Query(ctx, "SELECT id, subcity_id, total_applicants, winners_count, seed_value, status, created_at FROM lotteries")
+	rows, err := r.db.Query(ctx, `
+		SELECT id, name, subcity_id, total_applicants, winners_count, seed_value, status, created_at
+		FROM lotteries
+	`)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +120,16 @@ func (r *LotteryRepo) ListAll(ctx context.Context) ([]*domain.Lottery, error) {
 	var lotteries []*domain.Lottery
 	for rows.Next() {
 		var l domain.Lottery
-		if err := rows.Scan(&l.ID, &l.SubcityID, &l.TotalApplicants, &l.WinnersCount, &l.SeedValue, &l.Status, &l.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&l.ID,
+			&l.Name,            
+			&l.SubcityID,
+			&l.TotalApplicants,
+			&l.WinnersCount,
+			&l.SeedValue,
+			&l.Status,
+			&l.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		lotteries = append(lotteries, &l)
@@ -104,10 +140,11 @@ func (r *LotteryRepo) ListAll(ctx context.Context) ([]*domain.Lottery, error) {
 
 func (r *LotteryRepo) ListBySubcity(ctx context.Context, subcityId string) ([]*domain.Lottery, error) {
 
-	rows, err := r.db.Query(ctx,
-		`SELECT id, subcity_id, total_applicants, winners_count, seed_value, status, created_at, name
-		 FROM lotteries
-		 WHERE subcity_id = $1`, subcityId)
+	rows, err := r.db.Query(ctx, `
+		SELECT id, name, subcity_id, total_applicants, winners_count, seed_value, status, created_at
+		FROM lotteries
+		WHERE subcity_id = $1
+	`, subcityId)
 
 	if err != nil {
 		return nil, err
@@ -119,13 +156,13 @@ func (r *LotteryRepo) ListBySubcity(ctx context.Context, subcityId string) ([]*d
 		var l domain.Lottery
 		if err := rows.Scan(
 			&l.ID,
+			&l.Name,          
 			&l.SubcityID,
 			&l.TotalApplicants,
 			&l.WinnersCount,
 			&l.SeedValue,
 			&l.Status,
 			&l.CreatedAt,
-			&l.Name,
 		); err != nil {
 			return nil, err
 		}
@@ -133,4 +170,22 @@ func (r *LotteryRepo) ListBySubcity(ctx context.Context, subcityId string) ([]*d
 	}
 
 	return lotteries, nil
+}
+
+
+func (r *LotteryRepo) IncrementWinnersCount(ctx context.Context, tx pgx.Tx, lotteryID string) error {
+	_, err := tx.Exec(ctx, `
+		UPDATE lotteries
+		SET winners_count = winners_count + 1
+		WHERE id = $1
+	`, lotteryID)
+	return err
+}
+func (r *LotteryRepo) UpdateStatus(ctx context.Context, tx pgx.Tx, lotteryID string, status domain.LotteryStatus) error {
+	_, err := tx.Exec(ctx, `
+		UPDATE lotteries
+		SET status = $1
+		WHERE id = $2
+	`, status, lotteryID)
+	return err
 }
