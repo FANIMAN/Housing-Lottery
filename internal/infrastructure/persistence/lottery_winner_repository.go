@@ -5,8 +5,9 @@ import (
 	"time"
 
 	"github.com/FANIMAN/housing-lottery/internal/domain"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type LotteryWinnerRepo struct {
@@ -26,6 +27,21 @@ func (r *LotteryWinnerRepo) Create(ctx context.Context, winner *domain.LotteryWi
 		winner.AnnouncedAt = &now
 	}
 	_, err := r.db.Exec(ctx, `
+		INSERT INTO lottery_winners (id, lottery_id, applicant_id, position_order, announced_at)
+		VALUES ($1, $2, $3, $4, $5)
+	`, winner.ID, winner.LotteryID, winner.ApplicantID, winner.PositionOrder, winner.AnnouncedAt)
+	return err
+}
+
+func (r *LotteryWinnerRepo) CreateTx(ctx context.Context, tx pgx.Tx, winner *domain.LotteryWinner) error {
+	if winner.ID == "" {
+		winner.ID = uuid.New().String()
+	}
+	if winner.AnnouncedAt == nil {
+		now := time.Now()
+		winner.AnnouncedAt = &now
+	}
+	_, err := tx.Exec(ctx, `
 		INSERT INTO lottery_winners (id, lottery_id, applicant_id, position_order, announced_at)
 		VALUES ($1, $2, $3, $4, $5)
 	`, winner.ID, winner.LotteryID, winner.ApplicantID, winner.PositionOrder, winner.AnnouncedAt)
