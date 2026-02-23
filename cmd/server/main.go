@@ -27,7 +27,7 @@ func main() {
 	// Repositories
 	adminRepo := persistence.NewAdminRepository(db)
 	auditRepo := persistence.NewAuditRepository(db)
-	subcityRepo := persistence.NewSubcityRepository(db) // exported type SubcityRepo
+	subcityRepo := persistence.NewSubcityRepository(db) 
 	applicantRepo := persistence.NewApplicantRepository(db)
 	uploadBatchRepo := persistence.NewUploadBatchRepository(db)
 	lotteryRepo := persistence.NewLotteryRepository(db)
@@ -87,6 +87,12 @@ func main() {
 	api.Post("/subcities/:id/lottery/start", lotteryHandler.Start)
 	api.Post("/lotteries/:id/spin", lotteryHandler.Spin)
 	api.Post("/lotteries/:id/close", lotteryHandler.Close)
+
+	// Admin verify pin
+	api.Post("/admin/verify-pin", adminHandler.VerifyPIN)
+
+	// Lottery winners
+	api.Get("/lotteries/winners", lotteryHandler.ListWinners)
 
 	log.Println("Server running on :8080")
 	log.Fatal(app.Listen(":8080"))

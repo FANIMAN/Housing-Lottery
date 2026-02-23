@@ -151,3 +151,18 @@ func (r *applicantRepository) GetFiltered(ctx context.Context, subcityID *uuid.U
 
 	return applicants, total, nil
 }
+
+func (r *applicantRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Applicant, error) {
+	row := r.db.QueryRow(ctx, `
+		SELECT id, full_name, condominium_registration_id, subcity_id, upload_batch_id, created_at
+		FROM applicants
+		WHERE id=$1
+	`, id)
+
+	var a domain.Applicant
+	if err := row.Scan(&a.ID, &a.FullName, &a.CondominiumRegistrationID, &a.SubcityID, &a.UploadBatchID, &a.CreatedAt); err != nil {
+		return nil, err
+	}
+
+	return &a, nil
+}

@@ -69,7 +69,11 @@ func (s *LotteryService) StartLottery(
 	return lottery, nil
 }
 
-func (s *LotteryService) SpinLottery(ctx context.Context, lotteryID, adminID string) (*domain.LotteryWinner, error) {
+func (s *LotteryService) SpinLottery(
+	ctx context.Context,
+	lotteryID string,
+	adminID string,
+) (*domain.LotteryWinnerResult, error) {
 
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -77,6 +81,7 @@ func (s *LotteryService) SpinLottery(ctx context.Context, lotteryID, adminID str
 	}
 	defer tx.Rollback(ctx)
 
+	// 1️⃣ Get Lottery
 	lottery, err := s.lotteryRepo.GetByID(ctx, lotteryID)
 	if err != nil {
 		return nil, err
@@ -86,21 +91,29 @@ func (s *LotteryService) SpinLottery(ctx context.Context, lotteryID, adminID str
 		return nil, errors.New("lottery is not active")
 	}
 
+	// 2️⃣ Get Applicants
 	applicants, err := s.applicantRepo.GetAllBySubcityID(ctx, lottery.SubcityID)
 	if err != nil {
 		return nil, err
 	}
 
+	// 3️⃣ Get Existing Winners
 	winners, err := s.lotteryWinnerRepo.GetWinnersByLottery(ctx, lotteryID)
 	if err != nil {
 		return nil, err
 	}
 
+	if len(winners) >= len(applicants) {
+		return nil, errors.New("all applicants have already won")
+	}
+
+	// 4️⃣ Build winner lookup map
 	wonIDs := make(map[string]bool)
 	for _, w := range winners {
 		wonIDs[w.ApplicantID] = true
 	}
 
+	// 5️⃣ Build eligible list
 	var eligible []string
 	for _, a := range applicants {
 		aID := a.ID.String()
@@ -109,6 +122,7 @@ func (s *LotteryService) SpinLottery(ctx context.Context, lotteryID, adminID str
 		}
 	}
 
+	// 6️⃣ If no eligible left → complete lottery
 	if len(eligible) == 0 {
 		if err := s.lotteryRepo.UpdateStatus(ctx, tx, lotteryID, domain.LotteryCompleted); err != nil {
 			return nil, err
@@ -119,6 +133,7 @@ func (s *LotteryService) SpinLottery(ctx context.Context, lotteryID, adminID str
 		return nil, errors.New("no eligible applicants remaining")
 	}
 
+	// 7️⃣ Pick random winner
 	rand.Seed(time.Now().UnixNano())
 	winnerID := eligible[rand.Intn(len(eligible))]
 
@@ -128,19 +143,37 @@ func (s *LotteryService) SpinLottery(ctx context.Context, lotteryID, adminID str
 		PositionOrder: len(winners) + 1,
 	}
 
+	// 8️⃣ Save winner
 	if err := s.lotteryWinnerRepo.CreateTx(ctx, tx, winner); err != nil {
 		return nil, err
 	}
 
+	// 9️⃣ Increment winners count
 	if err := s.lotteryRepo.IncrementWinnersCount(ctx, tx, lotteryID); err != nil {
 		return nil, err
 	}
 
+	// 🔟 Commit transaction
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 
-	return winner, nil
+	// 1️⃣1️⃣ Fetch full applicant info
+	applicantUUID, err := uuid.Parse(winnerID)
+	if err != nil {
+		return nil, err
+	}
+
+	applicant, err := s.applicantRepo.GetByID(ctx, applicantUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 1️⃣2️⃣ Return combined result
+	return &domain.LotteryWinnerResult{
+		Winner:    winner,
+		Applicant: applicant,
+	}, nil
 }
 
 func (s *LotteryService) CloseLottery(ctx context.Context, lotteryID, adminID string) error {
@@ -157,4 +190,26 @@ func (s *LotteryService) CloseLottery(ctx context.Context, lotteryID, adminID st
 
 	_ = s.auditRepo.Log(ctx, adminID, "close_lottery", "lottery", lottery.ID, 0, "", "", "")
 	return nil
+}
+
+
+func (s *LotteryService) ListWinners(
+	ctx context.Context,
+	subcityName, fullName, lotteryName string,
+	fromDate, toDate *time.Time,
+	page, pageSize int,
+) ([]*domain.LotteryWinnerResponse, int, error) {
+
+	offset := (page - 1) * pageSize
+
+	return s.lotteryWinnerRepo.ListWinners(
+		ctx,
+		subcityName,
+		fullName,
+		lotteryName,
+		fromDate,
+		toDate,
+		pageSize,
+		offset,
+	)
 }
