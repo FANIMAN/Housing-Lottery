@@ -50,6 +50,10 @@ func main() {
 	dashboardUsecase := usecase.NewDashboardUsecase(dashboardRepo, subcityRepo, lotteryRepo)
 	dashboardHandler := http.NewDashboardHandler(dashboardUsecase)
 
+	// Audit
+	auditService := usecase.NewAuditService(auditRepo)
+	auditHandler := http.NewAuditHandler(auditService)
+
 	app := fiber.New()
 	app.Use(logger.New())
 	app.Use(cors.New(cors.Config{
@@ -93,6 +97,9 @@ func main() {
 
 	// Lottery winners
 	api.Get("/lotteries/winners", lotteryHandler.ListWinners)
+
+	// Audit logs
+	api.Get("/audits", auditHandler.List)
 
 	log.Println("Server running on :8080")
 	log.Fatal(app.Listen(":8080"))
