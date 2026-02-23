@@ -1,8 +1,10 @@
 package http
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"os"
+
 	"github.com/FANIMAN/housing-lottery/internal/usecase"
+	"github.com/gofiber/fiber/v2"
 )
 
 type AdminHandler struct {
@@ -50,4 +52,28 @@ func (h *AdminHandler) Login(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"token": token,
 	})
+}
+
+
+func (h *AdminHandler) VerifyPIN(c *fiber.Ctx) error {
+	type request struct {
+		PIN string `json:"pin"`
+	}
+
+	var body request
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
+	}
+
+	if body.PIN == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "PIN is required"})
+	}
+
+	// Compare with env PIN
+	adminPin := os.Getenv("ADMIN_PIN")
+	if body.PIN != adminPin {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid admin PIN"})
+	}
+
+	return c.JSON(fiber.Map{"success": true})
 }
