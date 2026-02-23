@@ -1,6 +1,11 @@
 package interfaces
 
-import "context"
+import (
+	"context"
+	"time"
+
+	"github.com/FANIMAN/housing-lottery/internal/domain"
+)
 
 type AuditRepository interface {
 	Log(
@@ -14,4 +19,11 @@ type AuditRepository interface {
 		userAgent string,
 		errorMessage string,
 	) error
+
+	List(
+		ctx context.Context,
+		adminID, action, entityType string,
+		fromDate, toDate *time.Time,
+		limit, offset int,
+	) ([]*domain.AuditLogResponse, int, error)
 }
