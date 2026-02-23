@@ -77,3 +77,24 @@ func (h *AdminHandler) VerifyPIN(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{"success": true})
 }
+
+
+func (h *AdminHandler) List(c *fiber.Ctx) error {
+	email := c.Query("email")
+	id := c.Query("id")
+
+	page := c.QueryInt("page", 1)
+	pageSize := c.QueryInt("page_size", 10)
+
+	admins, total, err := h.usecase.ListAdmins(c.Context(), email, id, page, pageSize)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"data":     admins,
+		"total":    total,
+		"page":     page,
+		"pageSize": pageSize,
+	})
+}

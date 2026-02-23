@@ -81,3 +81,9 @@ func (u *AdminUsecase) Login(ctx context.Context, email, password string) (strin
 	_ = u.auditRepo.Log(ctx, admin.ID, "admin_login", "admin", admin.ID, 0, "", "", "")
 	return signedToken, nil
 }
+
+
+func (u *AdminUsecase) ListAdmins(ctx context.Context, email, id string, page, pageSize int) ([]*domain.Admin, int, error) {
+	offset := (page - 1) * pageSize
+	return u.repo.List(ctx, email, id, pageSize, offset)
+}

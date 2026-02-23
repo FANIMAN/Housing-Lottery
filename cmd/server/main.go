@@ -93,6 +93,7 @@ func main() {
 	api.Post("/lotteries/:id/close", lotteryHandler.Close)
 
 	// Admin verify pin
+	api.Get("/admins", adminHandler.List)
 	api.Post("/admin/verify-pin", adminHandler.VerifyPIN)
 
 	// Lottery winners
